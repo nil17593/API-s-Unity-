@@ -1,31 +1,75 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
-using System.Collections;
 
-public class APIClient : MonoBehaviour
+public class ApiClient : MonoBehaviour
 {
-    [SerializeField] private string apiUrl = "https://qa2.sunbasedata.com/sunbase/portal/api/assignment.jsp?cmd=client_data";
+    private string apiUrl = "https://qa2.sunbasedata.com/sunbase/portal/api/assignment.jsp?cmd=client_data";
 
-    private void Start()
+    [System.Serializable]
+    private class ClientData
     {
-        StartCoroutine(GetAPIData());
+        public List<Client> clients;
+        public Data data;
+        public string label;
     }
 
-    IEnumerator GetAPIData()
+    [System.Serializable]
+    private class Client
     {
-        UnityWebRequest request = UnityWebRequest.Get(apiUrl);
-        yield return request.SendWebRequest();
+        public bool isManager;
+        public int id;
+        public string label;
+    }
 
-        if (request.result != UnityWebRequest.Result.Success)
+    [System.Serializable]
+    private class Data
+    {
+        public ClientDetails[] details;
+    }
+
+    [System.Serializable]
+    private class ClientDetails
+    {
+        public string address;
+        public string name;
+        public int points;
+    }
+
+    void Start()
+    {
+        StartCoroutine(FetchDataFromAPI());
+    }
+
+    IEnumerator FetchDataFromAPI()
+    {
+        using (UnityWebRequest webRequest = UnityWebRequest.Get(apiUrl))
         {
-            Debug.LogError("API request failed: " + request.error);
+            yield return webRequest.SendWebRequest();
+
+            if (webRequest.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError("API Request Error: " + webRequest.error);
+            }
+            else
+            {
+                // Process the JSON response here using JsonUtility.
+                string jsonData =  webRequest.downloadHandler.text;
+                ClientData clientData = JsonUtility.FromJson<ClientData>(jsonData);
+                // Handle the data as needed.
+                HandleApiResponse(clientData);
+            }
         }
-        else
+    }
+
+    void HandleApiResponse(ClientData clientData)
+    {
+        foreach(Client client in clientData.clients)
         {
-            // Process the JSON response
-            string jsonResult = request.downloadHandler.text;
-            Debug.Log(jsonResult);
-            // Add code to parse and handle the JSON data.
+            Debug.Log("ID= " + client.id);
+            Debug.Log("ismanager= " + client.isManager);
+            Debug.Log("label= " + client.label);
         }
     }
 }
