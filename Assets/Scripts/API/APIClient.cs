@@ -2,47 +2,40 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
+using TMPro;
+using System;
 
+/// <summary>
+/// API client class handles 
+/// calling of API and fetch API data
+/// Set filter for the clients
+/// dropdown filter for the clients
+/// </summary>
 public class ApiClient : MonoBehaviour
 {
-    private string apiUrl = "https://qa2.sunbasedata.com/sunbase/portal/api/assignment.jsp?cmd=client_data";
+    [Header ("Serialized fields")]
+    [SerializeField] private string apiUrl = "https://qa2.sunbasedata.com/sunbase/portal/api/assignment.jsp?cmd=client_data";
+    [SerializeField] TMP_Dropdown filterDropdown;
 
-    [System.Serializable]
-    private class ClientData
-    {
-        public List<Client> clients;
-        public Data data;
-        public string label;
-    }
+    #region private fiels
+    private ClientData clientData;
+    private IClientFilter currentFilter;
+    #endregion
 
-    [System.Serializable]
-    private class Client
-    {
-        public bool isManager;
-        public int id;
-        public string label;
-    }
+    #region event
+    public delegate void ClientDataReceivedHandler(List<Client> clients);
+    public event ClientDataReceivedHandler OnClientDataReceived;
+    #endregion
 
-    [System.Serializable]
-    private class Data
-    {
-        public ClientDetails[] details;
-    }
-
-    [System.Serializable]
-    private class ClientDetails
-    {
-        public string address;
-        public string name;
-        public int points;
-    }
-
-    void Start()
+    privateb void Start()
     {
         StartCoroutine(FetchDataFromAPI());
+        filterDropdown.onValueChanged.AddListener(OnFilterChanged);
+        SetFilter(new ClientFilter(client => true)); // Default filter (all clients)
     }
 
-    IEnumerator FetchDataFromAPI()
+    //fetch the API data
+    private IEnumerator FetchDataFromAPI()
     {
         using (UnityWebRequest webRequest = UnityWebRequest.Get(apiUrl))
         {
@@ -56,20 +49,82 @@ public class ApiClient : MonoBehaviour
             {
                 // Process the JSON response here using JsonUtility.
                 string jsonData =  webRequest.downloadHandler.text;
-                ClientData clientData = JsonUtility.FromJson<ClientData>(jsonData);
-                // Handle the data as needed.
-                HandleApiResponse(clientData);
+                clientData = JsonUtility.FromJson<ClientData>(jsonData);
             }
         }
     }
 
-    void HandleApiResponse(ClientData clientData)
+    //event function for filter value change
+    private void OnFilterChanged(int index)
     {
-        foreach(Client client in clientData.clients)
+        Func<Client, bool> filterFunction = null;
+
+        switch (index)
         {
-            Debug.Log("ID= " + client.id);
-            Debug.Log("ismanager= " + client.isManager);
-            Debug.Log("label= " + client.label);
+            case 0:
+                filterFunction = client => true; // All clients
+                break;
+            case 1:
+                filterFunction = client => client.isManager; // Managers only
+                break;
+            case 2:
+                filterFunction = client => !client.isManager; // Non-managers
+                break;
+
+            default:
+                filterFunction = client => true; // All clients
+                break;
+
         }
+
+        SetFilter(new ClientFilter(filterFunction));
+
+        // Apply the selected filter to the client list
+        ShowClientsList(clientData);
+    }
+
+    //set the filter to show filtered clients
+    private void SetFilter(IClientFilter filter)
+    {
+        currentFilter = filter;
+    }
+
+    //show the filtered clients list
+    private void ShowClientsList(ClientData clientData)
+    {
+        List<Client> filteredClients = currentFilter.FilterClients(clientData.clients);
+        OnClientDataReceived?.Invoke(filteredClients);
     }
 }
+
+#region Serializable classes
+[System.Serializable]
+public class ClientData
+{
+    public List<Client> clients;
+    public Data data;
+    public string label;
+}
+
+[System.Serializable]
+public class Client
+{
+    public bool isManager;
+    public int id;
+    public string label;
+}
+
+[System.Serializable]
+public class Data
+{
+    public ClientDetails[] details;
+}
+
+[System.Serializable]
+public class ClientDetails
+{
+    public string address;
+    public string name;
+    public int points;
+}
+#endregion
