@@ -27,7 +27,7 @@ public class ApiClient : MonoBehaviour
     public event ClientDataReceivedHandler OnClientDataReceived;
     #endregion
 
-    privateb void Start()
+    private void Start()
     {
         StartCoroutine(FetchDataFromAPI());
         filterDropdown.onValueChanged.AddListener(OnFilterChanged);
