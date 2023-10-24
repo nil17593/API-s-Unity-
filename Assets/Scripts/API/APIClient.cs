@@ -13,6 +13,7 @@ using System;
 /// </summary>
 public class ApiClient : MonoBehaviour
 {
+    public enum ClientFilterEnum { AllClients, MangerClients, NonManagerClients }
     [Header ("Serialized fields")]
     [SerializeField] private string apiUrl = "https://qa2.sunbasedata.com/sunbase/portal/api/assignment.jsp?cmd=client_data";
     [SerializeField] TMP_Dropdown filterDropdown;
@@ -30,7 +31,12 @@ public class ApiClient : MonoBehaviour
     private void Start()
     {
         StartCoroutine(FetchDataFromAPI());
-        filterDropdown.onValueChanged.AddListener(OnFilterChanged);
+        filterDropdown.onValueChanged.AddListener((int index) =>
+        {
+            // Map the index to the corresponding enum value
+            ClientFilterEnum selectedFilter = (ClientFilterEnum)index;
+            OnFilterChanged(selectedFilter);
+        });
         SetFilter(new ClientFilter(client => true)); // Default filter (all clients)
     }
 
@@ -50,24 +56,25 @@ public class ApiClient : MonoBehaviour
                 // Process the JSON response here using JsonUtility.
                 string jsonData =  webRequest.downloadHandler.text;
                 clientData = JsonUtility.FromJson<ClientData>(jsonData);
+                ShowClientsList(clientData);
             }
         }
     }
 
     //event function for filter value change
-    private void OnFilterChanged(int index)
+    private void OnFilterChanged(ClientFilterEnum index)
     {
         Func<Client, bool> filterFunction = null;
 
         switch (index)
         {
-            case 0:
+            case ClientFilterEnum.AllClients:
                 filterFunction = client => true; // All clients
                 break;
-            case 1:
+            case ClientFilterEnum.MangerClients:
                 filterFunction = client => client.isManager; // Managers only
                 break;
-            case 2:
+            case ClientFilterEnum.NonManagerClients:
                 filterFunction = client => !client.isManager; // Non-managers
                 break;
 

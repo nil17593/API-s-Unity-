@@ -1,13 +1,16 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-
+public enum FilterType
+{
+    AllClients,
+    ManagersOnly,
+    NonManagers
+}
 /// <summary>
-/// Ui class will handle all the UI interactions
-
+/// Ui Manager class to handle all the Ui functions
 /// </summary>
 public class UIManager : MonoBehaviour
 {
@@ -15,52 +18,84 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Transform buttonParent;
     [SerializeField] private ApiClient apiClient;
 
-    private List<GameObject> clientButtons = new List<GameObject>();//list to hold the client button list track
+    private List<GameObject> clientButtons = new List<GameObject>();
+    private List<Client> allClients = new List<Client>();
+    private FilterType currentFilter = FilterType.AllClients;
 
     void Start()
     {
-        apiClient.OnClientDataReceived += UpdateClientButtons;
+        // Subscribe to the data received event
+        apiClient.OnClientDataReceived += OnClientDataReceived;
     }
+
     private void OnDisable()
     {
-        apiClient.OnClientDataReceived -= UpdateClientButtons;
+        // Unsubscribe from the data received event to avoid memory leaks
+        apiClient.OnClientDataReceived -= OnClientDataReceived;
     }
 
     // Event handler for when client data is received
-    void UpdateClientButtons(List<Client> clients)
+    void OnClientDataReceived(List<Client> clients)
     {
-        // Deactivate all client buttons
+        // Store the list of clients
+        allClients = clients;
+        // Update the displayed clients based on the current filter
+        ShowClients(currentFilter);
+    }
+
+    // Show clients based on the selected filter
+    void ShowClients(FilterType filter)
+    {
+        // Deactivate all buttons
         foreach (var button in clientButtons)
         {
             button.SetActive(false);
         }
 
-        // Reuse or create buttons for each client
-        for (int i = 0; i < clients.Count; i++)
+        foreach (Client client in allClients)
         {
+            // Depending on the filter, you can control visibility here
+            bool shouldShow = IsClientVisible(client, filter);
+
             GameObject clientButton;
-            if (i < clientButtons.Count)
-            {
-                clientButton = clientButtons[i];
-            }
-            else
+            if (clientButtons.Count < allClients.Count)
             {
                 clientButton = Instantiate(clientButtonPrefab, buttonParent);
                 clientButtons.Add(clientButton);
             }
+            else
+            {
+                clientButton = clientButtons[allClients.IndexOf(client)];
+            }
 
-            // Set the client label
             TextMeshProUGUI buttonText = clientButton.GetComponentInChildren<TextMeshProUGUI>();
-            buttonText.text = clients[i].label;
-
-            // Activate the button
-            clientButton.SetActive(true);
+            buttonText.text = client.label;
+            clientButton.SetActive(shouldShow);
 
             // Add a click event to the button
             Button buttonComponent = clientButton.GetComponent<Button>();
-            int index = i; // Capture the index variable
+            int index = allClients.IndexOf(client);
             buttonComponent.onClick.RemoveAllListeners();
-            buttonComponent.onClick.AddListener(() => OnClientButtonClicked(clients[index]));
+            buttonComponent.onClick.AddListener(() => OnClientButtonClicked(allClients[index]));
+        }
+
+        // Update the current filter
+        currentFilter = filter;
+    }
+
+    // Check if a client should be visible based on the filter
+    bool IsClientVisible(Client client, FilterType filter)
+    {
+        switch (filter)
+        {
+            case FilterType.AllClients:
+                return true;
+            case FilterType.ManagersOnly:
+                return client.isManager;
+            case FilterType.NonManagers:
+                return !client.isManager;
+            default:
+                return true;
         }
     }
 
