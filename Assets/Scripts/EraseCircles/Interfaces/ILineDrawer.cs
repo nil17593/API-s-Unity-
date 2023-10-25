@@ -1,9 +1,13 @@
-/// <summary>
-/// Interface for Line drawer
-/// </summary>
-public interface ILineDrawer
+
+namespace SunBase.EraseCircles
 {
-    void StartDrawing();
-    void UpdateDrawing();
-    void EndDrawing();
+    /// <summary>
+    /// Interface for Line drawer
+    /// </summary>
+    public interface ILineDrawer
+    {
+        void StartDrawing();
+        void UpdateDrawing();
+        void EndDrawing();
+    }
 }

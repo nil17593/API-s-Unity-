@@ -4,134 +4,160 @@ using UnityEngine;
 using UnityEngine.Networking;
 using TMPro;
 using System;
+using Newtonsoft.Json;
 
-/// <summary>
-/// API client class handles 
-/// calling of API and fetch API data
-/// Set filter for the clients
-/// dropdown filter for the clients
-/// </summary>
-public class ApiClient : MonoBehaviour
+
+namespace SunBase.API
 {
-    public enum ClientFilterEnum { AllClients, MangerClients, NonManagerClients }
-    [Header ("Serialized fields")]
-    [SerializeField] private string apiUrl = "https://qa2.sunbasedata.com/sunbase/portal/api/assignment.jsp?cmd=client_data";
-    [SerializeField] TMP_Dropdown filterDropdown;
-
-    #region private fiels
-    private ClientData clientData;
-    private IClientFilter currentFilter;
-    #endregion
-
-    #region event
-    public delegate void ClientDataReceivedHandler(List<Client> clients);
-    public event ClientDataReceivedHandler OnClientDataReceived;
-    #endregion
-
-    private void Start()
+    public enum ClientFilterEnum
     {
-        StartCoroutine(FetchDataFromAPI());
-        filterDropdown.onValueChanged.AddListener((int index) =>
-        {
-            // Map the index to the corresponding enum value
-            ClientFilterEnum selectedFilter = (ClientFilterEnum)index;
-            OnFilterChanged(selectedFilter);
-        });
-        SetFilter(new ClientFilter(client => true)); // Default filter (all clients)
+        AllClients,
+        MangerClients,
+        NonManagerClients
     }
 
-    //fetch the API data
-    private IEnumerator FetchDataFromAPI()
+    /// <summary>
+    /// API client class handles 
+    /// calling of API and fetch API data
+    /// Set filter for the clients
+    /// dropdown filter for the clients
+    /// </summary>
+    public class ApiClient : MonoGenericSingletone<ApiClient>
     {
-        using (UnityWebRequest webRequest = UnityWebRequest.Get(apiUrl))
-        {
-            yield return webRequest.SendWebRequest();
+        [Header("Serialized fields")]
+        [SerializeField] private string apiUrl = "https://qa2.sunbasedata.com/sunbase/portal/api/assignment.jsp?cmd=client_data";
+        [SerializeField] TMP_Dropdown filterDropdown;
 
-            if (webRequest.result != UnityWebRequest.Result.Success)
+        #region private fiels
+        private ClientData clientData;
+        private IClientFilter currentFilter;
+        #endregion
+
+        #region event
+        public delegate void ClientDataReceivedHandler(List<Client> clients);
+        public event ClientDataReceivedHandler OnClientDataReceived;
+        #endregion
+
+        private void Start()
+        {
+            StartCoroutine(FetchDataFromAPI());
+            filterDropdown.onValueChanged.AddListener((int index) =>
             {
-                Debug.LogError("API Request Error: " + webRequest.error);
+            // Map the index to the corresponding enum value
+            ClientFilterEnum selectedFilter = (ClientFilterEnum)index;
+                OnFilterChanged(selectedFilter);
+            });
+            SetFilter(new ClientFilter(client => true)); // Default filter (all clients)
+        }
+
+        //fetch the API data
+        private IEnumerator FetchDataFromAPI()
+        {
+            using (UnityWebRequest webRequest = UnityWebRequest.Get(apiUrl))
+            {
+                yield return webRequest.SendWebRequest();
+
+                if (webRequest.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogError("API Request Error: " + webRequest.error);
+                }
+                else
+                {
+                    // Process the JSON response here using JsonUtility.
+                    string jsonData = webRequest.downloadHandler.text;
+                    clientData = JsonConvert.DeserializeObject<ClientData>(jsonData);
+                    ShowClientsList(clientData);
+                }
             }
-            else
+        }
+
+        //event function for filter value change
+        private void OnFilterChanged(ClientFilterEnum index)
+        {
+            Func<Client, bool> filterFunction = null;
+
+            switch (index)
             {
-                // Process the JSON response here using JsonUtility.
-                string jsonData =  webRequest.downloadHandler.text;
-                clientData = JsonUtility.FromJson<ClientData>(jsonData);
+                case ClientFilterEnum.AllClients:
+                    filterFunction = client => true; // All clients
+                    break;
+                case ClientFilterEnum.MangerClients:
+                    filterFunction = client => client.isManager; // Managers only
+                    break;
+                case ClientFilterEnum.NonManagerClients:
+                    filterFunction = client => !client.isManager; // Non-managers
+                    break;
+
+                default:
+                    filterFunction = client => true; // All clients
+                    break;
+
+            }
+
+            SetFilter(new ClientFilter(filterFunction));
+
+            // Apply the selected filter to the client list
+            if (clientData != null)
+            {
                 ShowClientsList(clientData);
             }
         }
-    }
 
-    //event function for filter value change
-    private void OnFilterChanged(ClientFilterEnum index)
-    {
-        Func<Client, bool> filterFunction = null;
-
-        switch (index)
+        //set the filter to show filtered clients
+        private void SetFilter(IClientFilter filter)
         {
-            case ClientFilterEnum.AllClients:
-                filterFunction = client => true; // All clients
-                break;
-            case ClientFilterEnum.MangerClients:
-                filterFunction = client => client.isManager; // Managers only
-                break;
-            case ClientFilterEnum.NonManagerClients:
-                filterFunction = client => !client.isManager; // Non-managers
-                break;
-
-            default:
-                filterFunction = client => true; // All clients
-                break;
-
+            currentFilter = filter;
         }
 
-        SetFilter(new ClientFilter(filterFunction));
+        //show the filtered clients list
+        private void ShowClientsList(ClientData clientData)
+        {
+            List<Client> filteredClients = currentFilter.FilterClients(clientData.clients);
+            OnClientDataReceived?.Invoke(filteredClients);
+        }
 
-        // Apply the selected filter to the client list
-        ShowClientsList(clientData);
+        public ClientData GetclientData()
+        {
+            return clientData;
+        }
+
+        public ClientDetails GetClientDetails(int clientId)
+        {
+            if (clientData.data.TryGetValue(clientId.ToString(), out ClientDetails details))
+            {
+                return details;
+            }
+            else
+            {
+                return null;
+            }
+        }
     }
 
-    //set the filter to show filtered clients
-    private void SetFilter(IClientFilter filter)
+    #region Serializable classes
+
+    [System.Serializable]
+    public class ClientData
     {
-        currentFilter = filter;
+        public List<Client> clients;
+        public Dictionary<string, ClientDetails> data; // Use a dictionary to store the data
+        public string label;
     }
 
-    //show the filtered clients list
-    private void ShowClientsList(ClientData clientData)
+    [System.Serializable]
+    public class Client
     {
-        List<Client> filteredClients = currentFilter.FilterClients(clientData.clients);
-        OnClientDataReceived?.Invoke(filteredClients);
+        public bool isManager;
+        public int id;
+        public string label;
     }
-}
 
-#region Serializable classes
-[System.Serializable]
-public class ClientData
-{
-    public List<Client> clients;
-    public Data data;
-    public string label;
+    [System.Serializable]
+    public class ClientDetails
+    {
+        public string address;
+        public string name;
+        public int points;
+    }
+    #endregion
 }
-
-[System.Serializable]
-public class Client
-{
-    public bool isManager;
-    public int id;
-    public string label;
-}
-
-[System.Serializable]
-public class Data
-{
-    public ClientDetails[] details;
-}
-
-[System.Serializable]
-public class ClientDetails
-{
-    public string address;
-    public string name;
-    public int points;
-}
-#endregion

@@ -1,7 +1,8 @@
 
-public interface ICircle
+namespace SunBase.EraseCircles
 {
-    void OnCollideWithLine();
+    public interface ICircle
+    {
+        void OnCollideWithLine();
+    }
 }
-
-

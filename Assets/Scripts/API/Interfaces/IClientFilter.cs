@@ -1,8 +1,11 @@
 using System.Collections.Generic;
-/// <summary>
-/// Interface to apply client filter
-/// </summary>
-public interface IClientFilter
+namespace SunBase.API
 {
-    List<Client> FilterClients(List<Client> clients);
+    /// <summary>
+    /// Interface to apply client filter
+    /// </summary>
+    public interface IClientFilter
+    {
+        List<Client> FilterClients(List<Client> clients);
+    }
 }

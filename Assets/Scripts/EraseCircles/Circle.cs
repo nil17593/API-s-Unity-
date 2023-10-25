@@ -2,13 +2,16 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Circle class attached on each Spawned Circle
-/// </summary>
-public class Circle : MonoBehaviour, ICircle
+namespace SunBase.EraseCircles
 {
-    public void OnCollideWithLine()
+    /// <summary>
+    /// Circle class attached on each Spawned Circle
+    /// </summary>
+    public class Circle : MonoBehaviour, ICircle
     {
-        throw new System.NotImplementedException();
+        public void OnCollideWithLine()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

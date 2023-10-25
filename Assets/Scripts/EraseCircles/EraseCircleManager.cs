@@ -1,14 +1,16 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-
-/// <summary>
-/// Manager class manage the state of game
-/// </summary>
-public class EraseCircleManager : MonoBehaviour
+namespace SunBase.EraseCircles
 {
-    public void OnRestartButtonClicked()
+    /// <summary>
+    /// Manager class manage the state of game
+    /// </summary>
+    public class EraseCircleManager : MonoBehaviour
     {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        public void OnRestartButtonClicked()
+        {
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
     }
 }
